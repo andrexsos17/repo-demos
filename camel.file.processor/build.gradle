@@ -1,0 +1,73 @@
+buildscript {
+    repositories {
+        mavenCentral()
+    }
+    dependencies {
+        classpath('se.transmode.gradle:gradle-docker:1.2')
+    }
+}
+
+plugins {
+    id 'java'
+}
+apply plugin: 'docker'
+
+group = 'com.sura'
+version = '1.0-SNAPSHOT'
+sourceCompatibility = '1.8'
+
+dependencies {
+    compile 'org.apache.camel:camel-core:3.0.0'
+    compile 'org.apache.camel:camel-bindy:3.0.0'
+    compile 'org.apache.camel:camel-rabbitmq:3.0.0'
+    compile 'org.apache.camel:camel-cxf:3.0.0'
+    compile 'org.apache.camel:camel-jackson:3.0.0'
+    compile 'javax.xml.ws:jaxws-api:2.2'
+    compile 'org.apache.cxf:cxf-rt-transports-http-jetty:3.3.0'
+    compile 'org.slf4j:slf4j-api:1.7.5'
+    compile 'org.slf4j:slf4j-log4j12:1.7.5'
+
+    compileOnly group: 'org.projectlombok', name: 'lombok', version: '1.18.8'
+    annotationProcessor 'org.projectlombok:lombok:1.18.8'
+
+    testCompile 'org.apache.camel:camel-test:3.0.0'
+    testCompile group: 'org.powermock', name: 'powermock-module-junit4', version: '2.0.2'
+    testCompile group: 'org.powermock', name: 'powermock-api-mockito2', version: '2.0.2'
+}
+
+repositories {
+    maven {
+        url "https://artifactory.suramericana.com.co/artifactory/CoreVida-snapshot-local"
+        credentials {
+            username "artifactory"
+            password "APhUNND62ueYkqmndp3TPc5AfM"
+        }
+    }
+    mavenCentral()
+}
+
+jar {
+    manifest {
+        attributes(
+                "Class-Path": configurations.compile.collect { it.getName() }.join(' ')
+        )
+    }
+}
+
+task buildDocker(type: Docker) {
+    baseImage = 'openjdk:8-jdk-alpine'
+    push = project.hasProperty('push')
+    tag = 'com.sura/camel.file.processor'
+    addFile {
+        from {
+            configurations.compile
+        }
+    }
+    addFile {
+        from jar
+        rename { 'app.jar' }
+    }
+    entryPoint(['java', '-cp', 'app.jar', 'com.sura.camel.file.processor.MainApp'])
+    exposePort 8181
+}
+buildDocker.dependsOn(build)
